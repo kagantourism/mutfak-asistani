@@ -1,39 +1,28 @@
 import express from "express";
-import { WebSocketServer } from "ws";
+import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
-// WebSocket Server
-const wss = new WebSocketServer({ noServer: true });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-const client = createClient({ apiKey: process.env.GEMINI_API_KEY });
+app.post("/chat", async (req, res) => {
+  const { message } = req.body;
 
-wss.on("connection", async (ws) => {
-  // Başlat Gemini Live
-  const session = client.live.connect({
-    model: "gemini-2.0-flash-exp",  // veya güncel modeli kullan
-  });
+  try {
+    const response = await model.generateContent(message);
+    const text = response.response.text();
+    res.json({ reply: text });
 
-  ws.on("message", (msg) => {
-    // Kullanıcıdan gelen ses verisi → Gemini’ye gönder
-    session.send({ audio: { data: msg, mimeType: "audio/pcm" } });
-  });
-
-  for await (const ev of session) {
-    // Gelen yanıtı gönder
-    if (ev.audio) ws.send(ev.audio.data);
-    if (ev.text) ws.send(JSON.stringify({ text: ev.text }));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Gemini bağlantısı hata" });
   }
 });
 
-// Express HTTP + WebSocket upgrade
-const server = app.listen(3000, () =>
-  console.log("Mutfak Asistanı API çalışıyor: http://localhost:3000")
-);
+app.get("/", (req, res) => res.send("Mutfak Asistanı Gemini API Çalışıyor 🚀"));
 
-server.on("upgrade", (req, socket, head) => {
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req);
-  });
-});
+app.listen(3000, () => console.log("API 3000 portunda çalışıyor"));
