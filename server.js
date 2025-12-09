@@ -1,6 +1,6 @@
 import express from "express";
 import { WebSocketServer } from "ws";
-import { createClient } from "@google-ai/generative";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const app = express();
 
